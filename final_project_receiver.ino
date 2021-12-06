@@ -1,39 +1,34 @@
-#define RST D7
-#define RX D6
-#define TX D5
 #include <rn2xx3.h>
 #include <SoftwareSerial.h>
-#include <string>
-#include <vector>
-#include <sstream>
-
-String hexToAscii( String hex )
-{
-  uint16_t len = hex.length();
-  String ascii = "";
-
-  for ( uint16_t i = 0; i < len; i += 2 )
-    ascii += (char)strtol( hex.substring( i, i + 2 ).c_str(), NULL, 16 );
-
-  return ascii;
-}
+#include <ESP8266WiFi.h>
+#include <ESP8266HTTPClient.h>
+#include <WiFiClient.h>
+#include "communications.hpp"
+#include "globals.hpp"
 
 SoftwareSerial mySerial(TX, RX);
 rn2xx3 myLora(mySerial);
-String deviceId = "";
-String humidity = "";
-String temperature = "";
-String CO2Value = "";
-String windowStatus = "";
+WiFiClient client;
+HTTPClient http;
 
-String str = "";
-String hexData = "";
-String stringData = "";
-char * pch;
+struct deviceInfo {
+  String humidity = "";
+  String temperature = "";
+  String CO2Value = "";
+  String windowState = "";
+};
+
+std::map<String, deviceInfo> resultMap;
 
 void setup() {
-  // put your setup code here, to run once:
   Serial.begin(57600);
+  WiFi.begin(ssid, password);
+  Serial.println("Connecting");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
   mySerial.begin(9600);
 
   //reset rn2483
@@ -67,26 +62,28 @@ void loop() {
       str = mySerial.readStringUntil('\n');
     }
 
-    
     pch = strtok (const_cast<char*>(str.c_str()), " ");
     pch = strtok (NULL, " ");
     hexData = pch;
     stringData = hexToAscii(hexData);
-    if(stringData != ""){
+    if (stringData != "") {
+      deviceInfo newDevice;
       pch = strtok (const_cast<char*>(stringData.c_str()), ",");
       deviceId = pch;
       pch = strtok (NULL, ",");
-      humidity = pch;
+      newDevice.humidity = pch;
       pch = strtok (NULL, ",");
-      temperature = pch; 
+      newDevice.temperature = pch;
       pch = strtok (NULL, ",");
-      CO2Value = pch;
+      newDevice.CO2Value = pch;
       pch = strtok (NULL, ",");
-      windowStatus = pch;
+      newDevice.windowState = pch;
       pch = strtok (NULL, ",");
-      Serial.println(deviceId  + "," + humidity + "," + temperature + "," + CO2Value + "," + windowStatus);
+      resultMap[deviceId] = newDevice;
+      sendData();
+      Serial.println(generateJson());
     }
-    else{
+    else {
       Serial.println("Data not received correctly");
     }
   }
@@ -95,6 +92,7 @@ void loop() {
     Serial.println("radio not going into receive mode");
     delay(1000);
   }
+
   delay(5000);
 
 }
@@ -157,4 +155,41 @@ void setupMySerial() {
   mySerial.println("radio set bw 125");
   str = mySerial.readStringUntil('\n');
   Serial.println(str);
+}
+
+
+void sendData() {
+  http.begin(client, serverName);
+  http.addHeader("Content-Type", "application/json"); //maybe plain/text instead of application/json
+  String json = generateJson();
+  
+  int httpCode = http.POST(json);   //Send the request
+  String payload = http.getString();                  //Get the response payload
+
+  Serial.println(httpCode);   //Print HTTP return code
+  Serial.println(payload);    //Print request response payload
+
+  http.end();
+}
+
+String generateJson() {
+  String json = "{\"devices\": [{";
+
+  std::map<String, deviceInfo>::iterator it;
+
+  for (it = resultMap.begin(); it != resultMap.end(); it++)
+  {
+    json += "\"deviceId\":\"" + it->first + "\"," ;
+    json += "\"temperature\":\"" + it->second.temperature + "\"," ;
+    json += "\"humidity\":\"" + it->second.humidity + "\"," ;
+    json += "\"CO2\":\"" + it->second.CO2Value + "\"," ;
+    json += "\"windowState\":\"" + it->second.windowState + "\"" ;
+    if (std::next(it) == resultMap.end()) {
+      json += "}";
+    } else {
+      json += "},";
+    }
+  }
+  json += "]}";
+  return json;
 }
