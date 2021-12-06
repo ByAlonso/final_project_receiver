@@ -10,7 +10,7 @@ SoftwareSerial mySerial(TX, RX);
 rn2xx3 myLora(mySerial);
 WiFiClient client;
 HTTPClient http;
-
+String fakeDataId[9] = {"9904A30B00F24385","8804A30B00F24385","7704A30B00F24385","6604A30B00F24385","5504A30B00F24385","4404A30B00F24385","3304A30B00F24385","2204A30B00F24385","1104A30B00F24385"};
 struct deviceInfo {
   String humidity = "";
   String temperature = "";
@@ -80,6 +80,7 @@ void loop() {
       newDevice.windowState = pch;
       pch = strtok (NULL, ",");
       resultMap[deviceId] = newDevice;
+      fakeData();
       sendData();
       Serial.println(generateJson());
     }
@@ -162,7 +163,7 @@ void sendData() {
   http.begin(client, serverName);
   http.addHeader("Content-Type", "application/json"); //maybe plain/text instead of application/json
   String json = generateJson();
-  
+
   int httpCode = http.POST(json);   //Send the request
   String payload = http.getString();                  //Get the response payload
 
@@ -173,13 +174,13 @@ void sendData() {
 }
 
 String generateJson() {
-  String json = "{\"devices\": [{";
+  String json = "{\"devices\": [";
 
   std::map<String, deviceInfo>::iterator it;
 
   for (it = resultMap.begin(); it != resultMap.end(); it++)
   {
-    json += "\"deviceId\":\"" + it->first + "\"," ;
+    json += "{\"deviceId\":\"" + it->first + "\"," ;
     json += "\"temperature\":\"" + it->second.temperature + "\"," ;
     json += "\"humidity\":\"" + it->second.humidity + "\"," ;
     json += "\"CO2\":\"" + it->second.CO2Value + "\"," ;
@@ -192,4 +193,16 @@ String generateJson() {
   }
   json += "]}";
   return json;
+}
+
+void fakeData() {
+  for(int i = 0; i < 9; i++){
+    deviceInfo newDevice;
+    deviceId = fakeDataId[i];
+    newDevice.humidity = String(float(random(100,10000))/100);
+    newDevice.temperature = String(float(random(1800,4000))/100);
+    newDevice.CO2Value = String(float(random(100,200000))/100);
+    newDevice.windowState = String(random(0,2));
+    resultMap[deviceId] = newDevice;
+  }
 }
