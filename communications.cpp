@@ -1,5 +1,6 @@
 #include "communications.hpp"
 
+//Transforms hexadecimal array to String readable format
 String hexToAscii( String hex )
 {
   uint16_t len = hex.length();

@@ -98,6 +98,7 @@ void loop() {
 
 }
 
+//Sets up LoRa p2p device
 void setupMySerial() {
   Serial.println("Initing LoRa");
 
@@ -158,7 +159,7 @@ void setupMySerial() {
   Serial.println(str);
 }
 
-
+//Creates post petition and sends it to the server app
 void sendData() {
   http.begin(client, serverName);
   http.addHeader("Content-Type", "application/json"); //maybe plain/text instead of application/json
@@ -173,6 +174,7 @@ void sendData() {
   http.end();
 }
 
+//Generates JSON file with the parameters obtained from sensor device
 String generateJson() {
   String json = "{\"devices\": [";
 
@@ -195,6 +197,7 @@ String generateJson() {
   return json;
 }
 
+//Creates random data
 void fakeData() {
   for(int i = 0; i < 9; i++){
     deviceInfo newDevice;
